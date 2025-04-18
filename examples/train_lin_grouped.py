@@ -305,7 +305,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         else:
             # Normalization by dividing with piece count
             q_values = (
-                torch.ones((1, envs.single_action_space.n, 1), dtype=torch.float)
+                torch.ones((1, envs.single_action_space.n, 1), dtype=torch.float, device=device)
                 * -np.inf
             )
             q_values[:, action_mask == 1, :] = q_network(

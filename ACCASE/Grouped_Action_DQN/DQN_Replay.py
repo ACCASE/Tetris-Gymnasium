@@ -218,6 +218,11 @@ class Agent:
         # Initialize DQN
         policy_net = DQN(num_states, num_actions, self.hidden_layer_dim).to(device)
 
+        # Load model if not training
+        if not training:
+            policy_net.load_state_dict(torch.load(self.MODEL_FILE, map_location=device))
+            policy_net.eval()
+
         # Training parameters
         if training:
             # Initialize target network
@@ -290,7 +295,7 @@ class Agent:
                     # action = q_values.argmax().item()
                     # action = torch.tensor(action, dtype=torch.int, device=device)
 
-                # key = cv2.waitKey(1) # Needed to render the environment for some reason
+                key = cv2.waitKey(1) # Needed to render the environment for some reason
 
                 # Step to next state with action
                 new_state, reward, terminated, truncated, info = env.step(action.item()) # .item() returns tensor value

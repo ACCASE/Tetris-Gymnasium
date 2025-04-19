@@ -1,11 +1,12 @@
 Tetris1:
     env_id: tetris_gymnasium/Tetris
+    hidden_layer_dim: 32
     num_episodes: 2500
     epsilon_start: 1
     epsilon_end: 0.05
-    epsilon_decay: 0.99
+    epsilon_decay: 0.999
     learning_rate: 0.005
-    discount_factor: 0.99
+    discount_factor: 0.85
 TetrisReplay:
     env_id: tetris_gymnasium/Tetris
     hidden_layer_dim: 256
@@ -18,3 +19,12 @@ TetrisReplay:
     replay_buffer_size: 100000
     batch_size: 32
     target_update_freq: 10
+TetrisRandom:
+    env_id: tetris_gymnasium/Tetris
+    hidden_layer_dim: 32
+    num_episodes: 2500
+    epsilon_start: 1
+    epsilon_end: 0.05
+    epsilon_decay: 0.999
+    learning_rate: 0.005
+    discount_factor: 0.85

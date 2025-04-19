@@ -6,12 +6,30 @@
     "configurations": [
 
         {
+            "name": "Train TetrisBasic",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/DQN_Basic.py",
+            "console": "integratedTerminal",
+            "args": ["Tetris1", "--train"]
+        },
+
+        {
             "name": "Train TetrisReplay",
             "type": "debugpy",
             "request": "launch",
             "program": "ACCASE/Grouped_Action_DQN/DQN_Replay.py",
             "console": "integratedTerminal",
             "args": ["TetrisReplay", "--train"]
+        },
+
+        {
+            "name": "Simulate TetrisReplay",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/DQN_Replay.py",
+            "console": "integratedTerminal",
+            "args": ["TetrisReplay"]
         }
     ]
 }

@@ -19,7 +19,7 @@ from tetris_gymnasium.wrappers.observation import FeatureVectorObservation
 
 ######## Saving and Storing Logs and Models #########
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S" # Date
-RUNS_DIR = "runs/DQN_Basic" # Directory to save runs
+RUNS_DIR = "runs/Fully_Random" # Directory to save runs
 os.makedirs(RUNS_DIR, exist_ok=True)
 
 # 'Agg'

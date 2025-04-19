@@ -127,32 +127,18 @@ class Agent:
         terminations = torch.tensor(terminations).float().to(device) # Stack tensors into a batch
         action_masks = (torch.stack(action_masks)).float().to(device) # Convert to tensor with 1s and 0s
 
+        with torch.no_grad():  # No need to track gradients for prediction
+            # action_masks = torch.tensor(infos['action_mask'], dtype=torch.bool, device=device) # Limit to valid actions
+            # new_state_q = target_net(new_state) # Get Q-values for all possible actions
+            # new_state_q[~action_mask] = float('-inf') # Mask invalid actions with large negative value
+            target_q = rewards + (1-terminations) * self.discount_factor * (target_net(new_states).squeeze(2)*action_masks).max(1)[0] # Bellman equation
 
-        with torch.no_grad():
-            target_max = (
-                policy_net(new_states).squeeze(-1).squeeze(-1)
-            )
-            td_target = rewards.unsqueeze(1) + self.discount_factor * target_max * (
-                1 - terminations.unsqueeze(1)
-            )
-        old_val = policy_net(states).squeeze(-1).squeeze(-1)
+        # Get the expected reward for the current state and action
+        current_q = policy_net(states).squeeze(2).gather(dim=1, index=actions.unsqueeze(1)).squeeze() # Get Q-values for all possible actions
+        # current_q = policy_net(state)[action]
 
-        assert old_val.shape == td_target.shape
-        loss = self.loss_fn(old_val, td_target)
-
-
-        # with torch.no_grad():  # No need to track gradients for prediction
-        #     # action_masks = torch.tensor(infos['action_mask'], dtype=torch.bool, device=device) # Limit to valid actions
-        #     # new_state_q = target_net(new_state) # Get Q-values for all possible actions
-        #     # new_state_q[~action_mask] = float('-inf') # Mask invalid actions with large negative value
-        #     target_q = rewards + (1-terminations) * self.discount_factor * (target_net(new_states).squeeze(2)*action_masks).max(1)[0] # Bellman equation
-
-        # # Get the expected reward for the current state and action
-        # current_q = policy_net(states).squeeze(2).gather(dim=1, index=actions.unsqueeze(1)).squeeze() # Get Q-values for all possible actions
-        # # current_q = policy_net(state)[action]
-
-        # # Compute loss
-        # loss = self.loss_fn(current_q, target_q)
+        # Compute loss
+        loss = self.loss_fn(current_q, target_q)
 
         # Optimize
         self.optimizer.zero_grad() # Reset gradients
@@ -207,7 +193,6 @@ class Agent:
         # Storage
         rewards_list = []
         epsilon_history = []
-        lines_cleared_list = []
         best_reward = -float('inf')
 
         # Get input and output dimensions
@@ -246,9 +231,6 @@ class Agent:
             total_reward = 0
             terminated = False
             truncated = False
-
-            # Stats
-            episode_lines_cleared = 0
             
             while not terminated and not truncated:
 
@@ -256,46 +238,30 @@ class Agent:
                 action_mask = torch.tensor(info['action_mask'], dtype=torch.bool, device=device)  # Get valid actions
                 
                 if training and random.random() < epsilon:
-                    # # Get valid action indices
-                    # valid_actions = torch.where(action_mask)[0]
-                    # # Sample random action from valid actions only
-                    # action = valid_actions[torch.randint(0, len(valid_actions), (1,))].item()
-                    # action = torch.tensor(action, dtype=torch.int, device=device)
-
-                    action = (torch.where(action_mask == 1)[0])[torch.randint(len(torch.where(action_mask == 1)[0]), (1,))]
-                    # action = np.random.choice(np.where(action_mask == 1)[0])
-
+                    # Get valid action indices
+                    valid_actions = torch.where(action_mask)[0]
+                    # Sample random action from valid actions only
+                    action = valid_actions[torch.randint(0, len(valid_actions), (1,))].item()
+                    action = torch.tensor(action, dtype=torch.int, device=device)
                 else:
-
-                    # Normalization by dividing with piece count
-                    q_values = (
-                        torch.ones((1, env.action_space.n, 1), dtype=torch.float, device=device)
-                        * -np.inf
-                    )
-                    q_values[:, action_mask == 1, :] = policy_net(
-                        torch.Tensor(state[action_mask == 1, :]).to(device)
-                    )
-                    action = torch.argmax(q_values, dim=1)[0]
-
-                    # # Choose action based on policy network
-                    # # Have a batch of all possible next states                    
-                    # # Get Q-values for all possible actions
-                    # with torch.no_grad():  # No need to track gradients for prediction
-                    #     q_values = policy_net(state)  # Add batch dimension
+                    # Choose action based on policy network
+                    # Have a batch of all possible next states                    
+                    # Get Q-values for all possible actions
+                    with torch.no_grad():  # No need to track gradients for prediction
+                        q_values = policy_net(state)  # Add batch dimension
                     
-                    # # Mask invalid actions with large negative value
-                    # q_values[~action_mask] = float('-inf')
+                    # Mask invalid actions with large negative value
+                    q_values[~action_mask] = float('-inf')
                     
-                    # # Choose action with highest Q-value
-                    # action = q_values.argmax().item()
-                    # action = torch.tensor(action, dtype=torch.int, device=device)
+                    # Choose action with highest Q-value
+                    action = q_values.argmax().item()
+                    action = torch.tensor(action, dtype=torch.int, device=device)
 
                 # key = cv2.waitKey(1) # Needed to render the environment for some reason
 
                 # Step to next state with action
                 new_state, reward, terminated, truncated, info = env.step(action.item()) # .item() returns tensor value
                 total_reward += reward
-                episode_lines_cleared += info['lines_cleared']
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)

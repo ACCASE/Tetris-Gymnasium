@@ -317,6 +317,7 @@ class Agent:
 
             # Add reward to list
             rewards_list.append(total_reward)
+            lines_cleared_list.append(episode_lines_cleared)
             
 
             # Save model when a new best reward is achieved

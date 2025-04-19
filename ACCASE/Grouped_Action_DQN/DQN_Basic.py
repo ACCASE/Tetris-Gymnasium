@@ -7,11 +7,23 @@ from collections import deque
 import random
 import cv2
 import yaml
+import matplotlib
 import matplotlib.pyplot as plt
+import os
+import itertools
+import datetime
 
 from tetris_gymnasium.envs.tetris import Tetris
 from tetris_gymnasium.wrappers.grouped import GroupedActionsObservations
 from tetris_gymnasium.wrappers.observation import FeatureVectorObservation
+
+######## Saving and Storing Logs and Models #########
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S" # Date
+RUNS_DIR = "runs/DQN_Replay" # Directory to save runs
+os.makedirs(RUNS_DIR, exist_ok=True)
+
+# 'Agg'
+matplotlib.use('Agg') 
 
 # Choose device. Look for cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -70,6 +82,11 @@ class Agent:
         self.loss_fn = nn.MSELoss()  # Loss function for Q-learning
         self.optimizer = None  # Optimizer for training
 
+        # Visualzation and Storage
+        self.LOG_FILE   = os.path.join(RUNS_DIR, f"{params_set}.log")
+        self.MODEL_FILE = os.path.join(RUNS_DIR, f"{params_set}.pt")
+        self.GRAPH_FILE = os.path.join(RUNS_DIR, f"{params_set}.png")
+
     def optimize(self, reward, action, state, new_state, terminated, network):
         """
         Optimize the DQN using the Bellman equation
@@ -101,6 +118,45 @@ class Agent:
         loss.backward()
         self.optimizer.step()
 
+    def save_graph(self, rewards_list, epsilon_history):
+        """
+        Save the graph of rewards and epsilon history
+        """
+        fig = plt.figure(1)
+
+        # Plot rewards
+        window_size = 10
+        rolling_avg_reward = np.convolve(rewards_list, np.ones(window_size)/window_size, mode='valid')
+
+        # Different mean reward calc
+        # Plot average rewards (Y-axis) vs episodes (X-axis)
+        mean_rewards = np.zeros(len(rewards_list))
+        for i in range(len(mean_rewards)):
+            mean_rewards[i] = np.mean(rewards_list[max(0, i-99):(i+1)])
+
+        # Plot Norm^2 Error vs episodes
+        plt.figure(1,figsize=(10,5))
+        plt.subplot(1,2,1)
+        plt.plot(rewards_list, label='Rewards')
+        plt.plot(np.arange(window_size/2 - 1, len(rewards_list)-window_size/2), rolling_avg_reward, label='Rolling Average')
+        plt.plot(mean_rewards, label='Mean Rewards') 
+        plt.xlabel('Episode')
+        plt.ylabel('Total Reward')
+        plt.title('Rewards vs Episodes')
+
+        # Plot Epsilon history
+        plt.subplot(1,2,2)
+        plt.plot(epsilon_history, label='Epsilon')
+        plt.xlabel('Episode')
+        plt.ylabel('Epsilon')
+        plt.title('Epsilon vs Episodes')
+
+        plt.subplots_adjust(wspace=1, hspace=1)
+
+        # Save Figures
+        fig.savefig(self.GRAPH_FILE)
+        plt.close(fig)
+
     def run(self, training=True, render=False):
         """
         Train the agent using Deep Q-Learning
@@ -109,6 +165,8 @@ class Agent:
         
         # Storage
         rewards_list = []
+        epsilon_history = []
+        lines_cleared_list = []
 
         # Get input and output dimensions
         num_states = env.observation_space.shape[1]
@@ -124,14 +182,19 @@ class Agent:
 
             # Initialize optimizer
             self.optimizer = optim.Adam(policy_net.parameters(), lr=0.001)
+
+            # Start time
+            start_time = datetime.datetime.now()
+            last_graph_update_time = start_time
         
-        for episode in range(self.num_episodes):
+        for episode in itertools.count():
             state, info = env.reset()
             state = torch.tensor(state, dtype=torch.float, device=device)
             env.render()
             total_reward = 0
+            episode_lines_cleared = 0
             
-            while True:
+            while not terminated and not truncated:
 
                 # Get action mask from info
                 action_mask = torch.tensor(info['action_mask'], dtype=torch.bool, device=device)  # Get valid actions
@@ -169,6 +232,7 @@ class Agent:
                 # Step to next state with action
                 new_state, reward, terminated, truncated, info = env.step(action.item()) # .item() returns tensor value
                 total_reward += reward
+                episode_lines_cleared = info['lines_cleared']
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
@@ -182,12 +246,29 @@ class Agent:
                 # Optionally Render the enviornment
                 env.render()
 
-                # Check if the episode is done
-                if terminated or truncated:
-                    break
-
             # Add reward to list
             rewards_list.append(total_reward)
+            lines_cleared_list.append(episode_lines_cleared)
+        
+            if training:
+                epsilon_history.append(epsilon)
+
+                # Save Logs
+                if total_reward > best_reward:
+                    # Create log message
+                    log = f"{datetime.datetime.now().strftime(DATE_FORMAT)}: New best reward: {total_reward} at episode {episode}"
+                    print(log) # print log to console
+                    with open(self.LOG_FILE, 'a') as log_file:
+                        log_file.write(log + "\n") # Save log file
+                    # Update new best reward
+                    best_reward = total_reward 
+                    torch.save(policy_net.state_dict(), self.MODEL_FILE) # Save model
+
+                # Save Graph
+                current_time = datetime.datetime.now()
+                if current_time-last_graph_update_time > datetime.timedelta(seconds=10):
+                    self.save_graph(rewards_list, epsilon_history)
+                    last_graph_update_time = current_time
 
             # Modify epsilon
             epsilon = max(self.epsilon_end, epsilon * self.epsilon_decay)
@@ -203,19 +284,19 @@ if __name__ == "__main__":
 
     # Plotting
 
-    window_size = 10
-    rolling_avg_reward = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-    # Plot Norm^2 Error vs episodes
-    plt.figure(1,figsize=(10,5))
-    # plt.subplot(1,2,1)
-    plt.plot(rewards, label='Rewards')
-    plt.plot(np.arange(window_size/2 - 1, len(rewards)-window_size/2), rolling_avg_reward, label='Rolling Average') 
-    plt.xlabel('Episode')
-    plt.ylabel('Total Reward')
-    plt.title('Rewards vs Episodes')
-    # plt.subplot(1,2,2)
-    # plt.plot(Qe_error, label='e Greedy Q-Learning')
+    # window_size = 10
+    # rolling_avg_reward = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
+    # # Plot Norm^2 Error vs episodes
+    # plt.figure(1,figsize=(10,5))
+    # # plt.subplot(1,2,1)
+    # plt.plot(rewards, label='Rewards')
+    # plt.plot(np.arange(window_size/2 - 1, len(rewards)-window_size/2), rolling_avg_reward, label='Rolling Average') 
     # plt.xlabel('Episode')
-    # plt.ylabel('E[||Qk-Q*||]^2')
-    # plt.title('epsilon-Greedy Q-Learning Performance ($epsilon$ = ' + str(epsilon) + ')')
-    plt.show()
+    # plt.ylabel('Total Reward')
+    # plt.title('Rewards vs Episodes')
+    # # plt.subplot(1,2,2)
+    # # plt.plot(Qe_error, label='e Greedy Q-Learning')
+    # # plt.xlabel('Episode')
+    # # plt.ylabel('E[||Qk-Q*||]^2')
+    # # plt.title('epsilon-Greedy Q-Learning Performance ($epsilon$ = ' + str(epsilon) + ')')
+    # plt.show()

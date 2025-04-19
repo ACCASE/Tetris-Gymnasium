@@ -1,3 +1,4 @@
+import datetime
 import gymnasium as gym
 import numpy as np
 import torch
@@ -9,10 +10,12 @@ import cv2
 import yaml
 import matplotlib
 import matplotlib.pyplot as plt
-import os
 import itertools
+import os
 import datetime
+import argparse
 
+from collections import deque
 from tetris_gymnasium.envs.tetris import Tetris
 from tetris_gymnasium.wrappers.grouped import GroupedActionsObservations
 from tetris_gymnasium.wrappers.observation import FeatureVectorObservation
@@ -25,11 +28,13 @@ os.makedirs(RUNS_DIR, exist_ok=True)
 # 'Agg'
 matplotlib.use('Agg') 
 
+
 # Choose device. Look for cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = 'cpu' # Uncomment this line to force CPU usage
 
 class DQN(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim=32):
+    def __init__(self, input_dim, output_dim, hidden_dim=256):
         """
         Initialize Deep Q-Network
         
@@ -66,20 +71,38 @@ def buildEnv(render=False):
     
     return env
 
+class ReplayBuffer():
+    def __init__(self, capacity):
+        self.buffer = deque([],maxlen=capacity)
+
+    def add(self, experience):
+        self.buffer.append(experience)
+
+    def sample(self, batch_size):
+        return random.sample(self.buffer, batch_size)
+
+    def __len__(self):
+        return len(self.buffer)
+
+
 class Agent:
     def __init__(self, params_set):
         with open('ACCASE/Grouped_Action_DQN/params.yml', 'r') as file:
             all_params_sets = yaml.safe_load(file)
             params = all_params_sets[params_set]
 
-        self.hidden_layer_dim = params['hidden_layer_dim']
+        self.hidden_layer_dim = params['hidden_layer_dim'] # Hidden layer dimension
         self.num_episodes = params['num_episodes']
         self.epsilon_start = params['epsilon_start']
         self.epsilon_end = params['epsilon_end']
         self.epsilon_decay = params['epsilon_decay']
         self.learning_rate = params['learning_rate']
         self.discount_factor = params['discount_factor']  # Discount factor for future rewards
+        self.replay_buffer_size = params['replay_buffer_size']  # Size of the replay buffer
+        self.batch_size = params['batch_size']  # Batch size for training
+        self.target_update_freq = params['target_update_freq']  # Frequency of target network updates
 
+        # Network Elements
         self.loss_fn = nn.MSELoss()  # Loss function for Q-learning
         self.optimizer = None  # Optimizer for training
 
@@ -88,36 +111,53 @@ class Agent:
         self.MODEL_FILE = os.path.join(RUNS_DIR, f"{params_set}.pt")
         self.GRAPH_FILE = os.path.join(RUNS_DIR, f"{params_set}.png")
 
-    def optimize(self, reward, action, state, new_state, terminated, network):
+    def optimize(self, batch, policy_net, target_net):
         """
-        Optimize the DQN using the Bellman equation
-        
-        Args:
-            expected_reward (torch.Tensor): Expected reward
+        Optimize the DQN
         """
+        # Separate list into each element
+        states, actions, rewards, new_states, terminations, action_masks = zip(*batch) # *List is transposed
+        # Action mask is inverted i.e. false is true and true is false
 
-        # Get the expected reward for the current state and action
-        current_q = network(state)[action]
+        # Convert to batches of tensors
+        states = torch.stack(states).to(device) # Stack tensors into a batch
+        actions = torch.stack(actions).long().to(device) # Stack tensors into a batch
+        rewards = torch.stack(rewards).to(device) # Stack tensors into a batch
+        new_states = torch.stack(new_states).to(device) # Stack tensors into a batch
+        terminations = torch.tensor(terminations).float().to(device) # Stack tensors into a batch
+        action_masks = (torch.stack(action_masks)).float().to(device) # Convert to tensor with 1s and 0s
 
-        # Compute target Q-value using Bellman equation
+
         with torch.no_grad():
-            # Get max Q-value for next state
-            next_q_values = network(new_state)
-            next_q_value = next_q_values.max()
-        
-        # Calculate the target reward/update
-        if terminated:
-            target_q = reward
-        else:
-            target_q = reward + self.discount_factor * next_q_value
+            target_max = (
+                policy_net(new_states).squeeze(-1).squeeze(-1)
+            )
+            td_target = rewards.unsqueeze(1) + self.discount_factor * target_max * (
+                1 - terminations.unsqueeze(1)
+            )
+        old_val = policy_net(states).squeeze(-1).squeeze(-1)
 
-        # Compute loss
-        loss = self.loss_fn(current_q, target_q)
+        assert old_val.shape == td_target.shape
+        loss = self.loss_fn(old_val, td_target)
+
+
+        # with torch.no_grad():  # No need to track gradients for prediction
+        #     # action_masks = torch.tensor(infos['action_mask'], dtype=torch.bool, device=device) # Limit to valid actions
+        #     # new_state_q = target_net(new_state) # Get Q-values for all possible actions
+        #     # new_state_q[~action_mask] = float('-inf') # Mask invalid actions with large negative value
+        #     target_q = rewards + (1-terminations) * self.discount_factor * (target_net(new_states).squeeze(2)*action_masks).max(1)[0] # Bellman equation
+
+        # # Get the expected reward for the current state and action
+        # current_q = policy_net(states).squeeze(2).gather(dim=1, index=actions.unsqueeze(1)).squeeze() # Get Q-values for all possible actions
+        # # current_q = policy_net(state)[action]
+
+        # # Compute loss
+        # loss = self.loss_fn(current_q, target_q)
 
         # Optimize
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+        self.optimizer.zero_grad() # Reset gradients
+        loss.backward() # Backpropagation
+        self.optimizer.step() # Update weights
 
     def save_graph(self, rewards_list, epsilon_history):
         """
@@ -168,36 +208,51 @@ class Agent:
         rewards_list = []
         epsilon_history = []
         lines_cleared_list = []
+        best_reward = -float('inf')
 
         # Get input and output dimensions
         num_states = env.observation_space.shape[1]
-        num_actions = 1 #env.action_space.n
+        num_actions = 1 #env.action_space.n Becuase of grouped actions
+            # Will evaluate the value of each action and choose the greatest
         
         # Initialize DQN
-        policy_net = DQN(num_states, num_actions).to(device)
+        # policy_net = DQN(num_states, num_actions, self.hidden_layer_dim).to(device)
+
+        # Load model if not training
+        # if not training:
+            # policy_net.load_state_dict(torch.load(self.MODEL_FILE, map_location=device))
+            # policy_net.eval()
 
         # Training parameters
         if training:
-            epsilon = self.epsilon_start
-            epsilon_decay = self.epsilon_decay
-
-            # Initialize optimizer
-            self.optimizer = optim.Adam(policy_net.parameters(), lr=0.001)
-
-            # Start time
+            # Initialize target network
+            # target_net = DQN(num_states, num_actions).to(device)
+            # target_net.load_state_dict(policy_net.state_dict())
+            # Track Steps. Every so often update the target network with policy
+            step_count = 0
             start_time = datetime.datetime.now()
             last_graph_update_time = start_time
 
-            # Storage
-            best_reward = float('-inf')
+
+            # Initialize epsilon and decay
+            # epsilon = self.epsilon_start
+            # epsilon_decay = self.epsilon_decay
+
+            # Initialize replay buffer
+            # replay_buffer = ReplayBuffer(self.replay_buffer_size)
+
+            # Initialize optimizer. Currlently using Adam optimizer
+            # self.optimizer = optim.Adam(policy_net.parameters(), lr=self.learning_rate)
         
         for episode in itertools.count():
             state, info = env.reset()
             state = torch.tensor(state, dtype=torch.float, device=device)
             env.render()
+            total_reward = 0
             terminated = False
             truncated = False
-            total_reward = 0
+
+            # Stats
             episode_lines_cleared = 0
             
             while not terminated and not truncated:
@@ -205,46 +260,59 @@ class Agent:
                 # Get action mask from info
                 action_mask = torch.tensor(info['action_mask'], dtype=torch.bool, device=device)  # Get valid actions
                 
-                if training and random.random() < epsilon:
-                    # Choose random action
-                    # action = env.action_space.sample()
+                if training:
+                    # # Get valid action indices
+                    # valid_actions = torch.where(action_mask)[0]
+                    # # Sample random action from valid actions only
+                    # action = valid_actions[torch.randint(0, len(valid_actions), (1,))].item()
                     # action = torch.tensor(action, dtype=torch.int, device=device)
 
-                    # Get valid action indices
-                    valid_actions = torch.where(action_mask)[0]
-                    # Sample random action from valid actions only
-                    action = valid_actions[torch.randint(0, len(valid_actions), (1,))].item()
-                    action = torch.tensor(action, dtype=torch.int, device=device)
+                    action = (torch.where(action_mask == 1)[0])[torch.randint(len(torch.where(action_mask == 1)[0]), (1,))]
+                    # action = np.random.choice(np.where(action_mask == 1)[0])
 
-                else:
-                    # Choose action based on policy network
-                    # Create a batch of all possible next states
+                # else:
+
+                #     # Normalization by dividing with piece count
+                #     q_values = (
+                #         torch.ones((1, env.action_space.n, 1), dtype=torch.float, device=device)
+                #         * -np.inf
+                #     )
+                #     q_values[:, action_mask == 1, :] = policy_net(
+                #         torch.Tensor(state[action_mask == 1, :]).to(device)
+                #     )
+                #     action = torch.argmax(q_values, dim=1)[0]
+
+                    # # Choose action based on policy network
+                    # # Have a batch of all possible next states                    
+                    # # Get Q-values for all possible actions
+                    # with torch.no_grad():  # No need to track gradients for prediction
+                    #     q_values = policy_net(state)  # Add batch dimension
                     
-                    # possible_states = state.repeat(env.action_space.n, 1)  # Repeat state for each action
+                    # # Mask invalid actions with large negative value
+                    # q_values[~action_mask] = float('-inf')
                     
-                    # Get Q-values for all possible actions
-                    with torch.no_grad():  # No need to track gradients for prediction
-                        q_values = policy_net(state)  # Add batch dimension
-                    
-                    # Mask invalid actions with large negative value
-                    q_values[~action_mask] = float('-inf')
-                    
-                    # Choose action with highest Q-value
-                    action = q_values.argmax().item()
-                    action = torch.tensor(action, dtype=torch.int, device=device)
+                    # # Choose action with highest Q-value
+                    # action = q_values.argmax().item()
+                    # action = torch.tensor(action, dtype=torch.int, device=device)
 
                 key = cv2.waitKey(1) # Needed to render the environment for some reason
 
                 # Step to next state with action
                 new_state, reward, terminated, truncated, info = env.step(action.item()) # .item() returns tensor value
                 total_reward += reward
-                episode_lines_cleared = info['lines_cleared']
+                episode_lines_cleared += info['lines_cleared']
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
                 reward = torch.tensor(reward, dtype=torch.float, device=device)
+                
 
-                self.optimize(reward, action, state, new_state, terminated, policy_net)
+                if training:
+                    # Store experience in replay buffer
+                    # replay_buffer.add((state, action, reward, new_state, terminated, action_mask))
+
+                    # Count for updating target network
+                    step_count += 1
 
                 # Next state
                 state = new_state
@@ -255,9 +323,24 @@ class Agent:
             # Add reward to list
             rewards_list.append(total_reward)
             lines_cleared_list.append(episode_lines_cleared)
-        
+            
+
+            # Save model when a new best reward is achieved
             if training:
-                epsilon_history.append(epsilon)
+                # epsilon_history.append(epsilon)
+
+                # Modify epsilon
+                # epsilon = max(self.epsilon_end, epsilon * self.epsilon_decay)
+
+                # If enough samples have been collected, sample a batch from the replay buffer
+                # if len(replay_buffer) > self.batch_size:
+                #     batch = replay_buffer.sample(32)
+                #     self.optimize(batch, policy_net, target_net)
+
+                #     # Sync target network with policy network every so often
+                #     if step_count > self.target_update_freq:
+                #         target_net.load_state_dict(policy_net.state_dict())
+                #         step_count = 0 # reset step count
 
                 # Save Logs
                 if total_reward > best_reward:
@@ -268,41 +351,30 @@ class Agent:
                         log_file.write(log + "\n") # Save log file
                     # Update new best reward
                     best_reward = total_reward 
-                    torch.save(policy_net.state_dict(), self.MODEL_FILE) # Save model
+                    # torch.save(policy_net.state_dict(), self.MODEL_FILE) # Save model
 
                 # Save Graph
                 current_time = datetime.datetime.now()
                 if current_time-last_graph_update_time > datetime.timedelta(seconds=10):
                     self.save_graph(rewards_list, epsilon_history)
                     last_graph_update_time = current_time
-
-            # Modify epsilon
-            epsilon = max(self.epsilon_end, epsilon * self.epsilon_decay)
-
-            # print(f"Episode {episode + 1}: Total Reward: {total_reward}")
         
-        env.close()
-        return rewards_list
+        # env.close()
+        # return rewards_list
 
 if __name__ == "__main__":
-    paul = Agent('Tetris1')
-    rewards = paul.run(True, False)
 
-    # Plotting
+    # Add option for command line arguments
+    parser = argparse.ArgumentParser(description='Training or Testing DQN Agent')
+    parser.add_argument('params', type=str, help='Parameters set to use for training/testing')
+    parser.add_argument('--train', action='store_true', help='Training flag')
+    args = parser.parse_args()
 
-    # window_size = 10
-    # rolling_avg_reward = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-    # # Plot Norm^2 Error vs episodes
-    # plt.figure(1,figsize=(10,5))
-    # # plt.subplot(1,2,1)
-    # plt.plot(rewards, label='Rewards')
-    # plt.plot(np.arange(window_size/2 - 1, len(rewards)-window_size/2), rolling_avg_reward, label='Rolling Average') 
-    # plt.xlabel('Episode')
-    # plt.ylabel('Total Reward')
-    # plt.title('Rewards vs Episodes')
-    # # plt.subplot(1,2,2)
-    # # plt.plot(Qe_error, label='e Greedy Q-Learning')
-    # # plt.xlabel('Episode')
-    # # plt.ylabel('E[||Qk-Q*||]^2')
-    # # plt.title('epsilon-Greedy Q-Learning Performance ($epsilon$ = ' + str(epsilon) + ')')
-    # plt.show()
+    terryTetris = Agent(params_set=args.params)
+
+    if args.train:
+        # Training Mode
+        terryTetris.run(training=True, render=False)
+    else:
+        # Testing Mode
+        terryTetris.run(training=False, render=True)

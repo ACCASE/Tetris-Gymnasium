@@ -176,6 +176,11 @@ class Agent:
         # Initialize DQN
         policy_net = DQN(num_states, num_actions).to(device)
 
+        # Load model if not training
+        if not training:
+            policy_net.load_state_dict(torch.load(self.MODEL_FILE, map_location=device))
+            policy_net.eval()
+
         # Training parameters
         if training:
             epsilon = self.epsilon_start

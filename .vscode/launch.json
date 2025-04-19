@@ -15,6 +15,15 @@
         },
 
         {
+            "name": "Simulate TetrisBasic",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/DQN_Basic.py",
+            "console": "integratedTerminal",
+            "args": ["Tetris1"]
+        },
+
+        {
             "name": "Train TetrisReplay",
             "type": "debugpy",
             "request": "launch",
@@ -30,6 +39,24 @@
             "program": "ACCASE/Grouped_Action_DQN/DQN_Replay.py",
             "console": "integratedTerminal",
             "args": ["TetrisReplay"]
+        },
+
+        {
+            "name": "Train TetrisRandom",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/Fully_Random.py",
+            "console": "integratedTerminal",
+            "args": ["TetrisRandom", "--train"]
+        },
+
+        {
+            "name": "Simulate TetrisRandom",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/Fully_Random.py",
+            "console": "integratedTerminal",
+            "args": ["TetrisRandom"]
         }
     ]
 }

@@ -270,7 +270,7 @@ class Agent:
 
                 if training:
                     # Store experience in replay buffer
-                    replay_buffer.add((state, action, reward, new_state, terminated, ~action_mask))
+                    replay_buffer.add((state, action, reward, new_state, terminated, action_mask))
 
                     # Count for updating target network
                     step_count += 1

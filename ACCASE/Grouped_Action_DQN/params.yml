@@ -14,10 +14,10 @@ TetrisReplay:
     epsilon_start: 1
     epsilon_end: 0.05
     epsilon_decay: 0.9999
-    learning_rate: 0.001
-    discount_factor: 0.85
+    learning_rate: 0.01
+    discount_factor: 0.8
     replay_buffer_size: 100000
-    batch_size: 32
+    batch_size: 64
     target_update_freq: 10
 TetrisRandom:
     env_id: tetris_gymnasium/Tetris

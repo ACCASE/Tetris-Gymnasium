@@ -51,6 +51,12 @@ class DQN(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, output_dim)
         )
+
+    def _create_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
         return self.layers(x)
@@ -226,7 +232,7 @@ class Agent:
         # Training parameters
         if training:
             # Initialize target network
-            target_net = DQN(num_states, num_actions).to(device)
+            target_net = DQN(num_states, num_actions, self.hidden_layer_dim).to(device)
             target_net.load_state_dict(policy_net.state_dict())
             # Track Steps. Every so often update the target network with policy
             step_count = 0
@@ -254,6 +260,7 @@ class Agent:
 
             # Stats
             episode_lines_cleared = 0
+            episode_length = 0
             
             while not terminated and not truncated:
 
@@ -301,6 +308,7 @@ class Agent:
                 new_state, reward, terminated, truncated, info = env.step(action.item()) # .item() returns tensor value
                 total_reward += reward
                 episode_lines_cleared += info['lines_cleared']
+                episode_length += 1
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
@@ -358,7 +366,14 @@ class Agent:
                 if current_time-last_graph_update_time > datetime.timedelta(seconds=10):
                     self.save_graph(rewards_list, epsilon_history)
                     last_graph_update_time = current_time
-        
+
+            if not training:
+                print(
+                    f"episode={episode}, "
+                    f"episodic_return={reward}, "
+                    f"episodic_length={episode_length}, "
+                    f"lines_cleared={episode_lines_cleared}"
+                )
         # env.close()
         # return rewards_list
 

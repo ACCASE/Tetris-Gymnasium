@@ -260,14 +260,14 @@ class Agent:
                 # Get action mask from info
                 action_mask = torch.tensor(info['action_mask'], dtype=torch.bool, device=device)  # Get valid actions
                 
-                if training:
+                # if training:
                     # # Get valid action indices
                     # valid_actions = torch.where(action_mask)[0]
                     # # Sample random action from valid actions only
                     # action = valid_actions[torch.randint(0, len(valid_actions), (1,))].item()
                     # action = torch.tensor(action, dtype=torch.int, device=device)
 
-                    action = (torch.where(action_mask == 1)[0])[torch.randint(len(torch.where(action_mask == 1)[0]), (1,))]
+                action = (torch.where(action_mask == 1)[0])[torch.randint(len(torch.where(action_mask == 1)[0]), (1,))]
                     # action = np.random.choice(np.where(action_mask == 1)[0])
 
                 # else:

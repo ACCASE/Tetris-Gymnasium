@@ -57,6 +57,15 @@
             "program": "ACCASE/Grouped_Action_DQN/Fully_Random.py",
             "console": "integratedTerminal",
             "args": ["TetrisRandom"]
+        },
+
+        {
+            "name": "Simulate TetrisManualCost",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_Hand_Crafted/Manual_Cost_Function.py",
+            "console": "integratedTerminal",
+            "args": ["TetrisManualCost"]
         }
     ]
 }

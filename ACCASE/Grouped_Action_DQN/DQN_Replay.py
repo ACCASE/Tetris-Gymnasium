@@ -107,6 +107,7 @@ class Agent:
         self.replay_buffer_size = params['replay_buffer_size']  # Size of the replay buffer
         self.batch_size = params['batch_size']  # Batch size for training
         self.target_update_freq = params['target_update_freq']  # Frequency of target network updates
+        self.start_training = params['start_training']  # Number of episodes before training starts
 
         # Network Elements
         self.loss_fn = nn.MSELoss()  # Loss function for Q-learning
@@ -341,7 +342,7 @@ class Agent:
                 epsilon = max(self.epsilon_end, epsilon * self.epsilon_decay)
 
                 # If enough samples have been collected, sample a batch from the replay buffer
-                if len(replay_buffer) > self.batch_size:
+                if len(replay_buffer) > self.batch_size and len(rewards_list) > self.start_training:
                     batch = replay_buffer.sample(32)
                     self.optimize(batch, policy_net, target_net)
 
@@ -353,7 +354,7 @@ class Agent:
                 # Save Logs
                 if total_reward > best_reward:
                     # Create log message
-                    log = f"{datetime.datetime.now().strftime(DATE_FORMAT)}: New best reward: {total_reward} at episode {episode}"
+                    log = f"{datetime.datetime.now().strftime(DATE_FORMAT)}: New best reward: {total_reward} at episode {episode}. Cleard lines: {episode_lines_cleared}"
                     print(log) # print log to console
                     with open(self.LOG_FILE, 'a') as log_file:
                         log_file.write(log + "\n") # Save log file

@@ -140,6 +140,7 @@ class FeatureVectorObservation(gym.ObservationWrapper):
         report_max_height=True,
         report_holes=True,
         report_bumpiness=True,
+        report_lines_complete=True,
     ):
         """Initialize the FeatureVectorObservation wrapper.
 
@@ -159,7 +160,8 @@ class FeatureVectorObservation(gym.ObservationWrapper):
                     (env.unwrapped.width if report_height else 0)
                     + (1 if report_max_height else 0)
                     + (1 if report_holes else 0)
-                    + (1 if report_bumpiness else 0),
+                    + (1 if report_bumpiness else 0)
+                    + (1 if report_lines_complete else 0),
                 )
             ),
             dtype=np.uint8,
@@ -169,6 +171,7 @@ class FeatureVectorObservation(gym.ObservationWrapper):
         self.report_max_height = report_max_height
         self.report_holes = report_holes
         self.report_bumpiness = report_bumpiness
+        self.report_lines_complete = report_lines_complete
 
     def calc_height(self, board):
         """Calculate the height of the board.
@@ -230,6 +233,22 @@ class FeatureVectorObservation(gym.ObservationWrapper):
         cumsum = np.cumsum(filled, axis=0)
         # Count cells that are empty but have filled cells above them
         return np.sum((board == 0) & (cumsum > 0))
+    
+    def calc_lines_complete(self, board):
+        """Calculate the number of holes in the stack.
+
+        Args:
+            board (np.ndarray): The board.
+
+        Returns:
+            int: The number of holes in the stack.
+        """
+        # Create a mask of non-zero elements
+        filled = board != 0
+        # Calculate cumulative sum of filled cells from top to bottom
+        cumsum = np.cumsum(filled, axis=0)
+        # Count cells that are empty but have filled cells above them
+        return np.sum((board == 0) & (cumsum > 0))
 
     def observation(self, observation):
         """Observation wrapper that returns the feature vector as the observation.
@@ -269,6 +288,10 @@ class FeatureVectorObservation(gym.ObservationWrapper):
         if self.report_bumpiness:
             bumpiness = self.calc_bumpiness(board_obs)
             features.append(bumpiness)
+
+        if self.report_lines_complete:
+            lines_complete = self.calc_lines_complete(board_obs)
+            features.append(lines_complete)
 
         features = np.array(features, dtype=np.uint8)
         return features

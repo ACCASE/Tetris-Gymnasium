@@ -5,6 +5,10 @@
 
 # A Fork of Tetris Gymnasium
 
+My Additions are contained within the folder ACCASE
+
+# 
+
 ![logo](https://raw.githubusercontent.com/Max-We/Tetris-Gymnasium/main/docs/_static/logo.png "Tetris Gymnasium")
 
 Tetris Gymnasium is a state-of-the-art, modular Reinforcement Learning (RL) environment for Tetris, tightly integrated

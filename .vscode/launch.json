@@ -60,6 +60,24 @@
         },
 
         {
+            "name": "Train TetrisDoubleDQN",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/Double_DQN_Replay.py",
+            "console": "integratedTerminal",
+            "args": ["TetrisDoubleDQN", "--train"]
+        },
+
+        {
+            "name": "Simulate TetrisDoubleDQN",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "ACCASE/Grouped_Action_DQN/Double_DQN_Replay.py",
+            "console": "integratedTerminal",
+            "args": ["TetrisDoubleDQN"]
+        },
+
+        {
             "name": "Simulate TetrisManualCost",
             "type": "debugpy",
             "request": "launch",

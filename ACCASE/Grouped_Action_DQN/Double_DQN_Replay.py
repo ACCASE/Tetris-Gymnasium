@@ -20,9 +20,13 @@ from tetris_gymnasium.envs.tetris import Tetris
 from tetris_gymnasium.wrappers.grouped import GroupedActionsObservations
 from tetris_gymnasium.wrappers.observation import FeatureVectorObservation
 
+##############################
+### Same as DQN with Replay Buffer but with an updated value function esimation update
+##############################
+
 ######## Saving and Storing Logs and Models #########
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S" # Date
-RUNS_DIR = "runs/DQN_Replay" # Directory to save runs
+RUNS_DIR = "runs/Double_DQN" # Directory to save runs
 os.makedirs(RUNS_DIR, exist_ok=True)
 
 # 'Agg'
@@ -136,16 +140,41 @@ class Agent:
 
 
         with torch.no_grad():
-            target_max = (
-                policy_net(new_states).squeeze(-1).squeeze(-1)
-            )
+                    # Double DQN modification:
+            # 1. Use policy network to SELECT actions
+            q_values_policy = policy_net(new_states).squeeze(-1).squeeze(-1)
+            q_values_policy[~action_masks.bool()] = float('-inf')
+            best_actions = q_values_policy.argmax(dim=1)
+
+            # 2. Use target network to EVALUATE those actions
+            q_values_target = target_net(new_states).squeeze(-1).squeeze(-1)
+            target_max = q_values_target.gather(1, best_actions.unsqueeze(1))
+
+            # Calculate TD target
             td_target = rewards.unsqueeze(1) + self.discount_factor * target_max * (
                 1 - terminations.unsqueeze(1)
             )
-        old_val = policy_net(states).squeeze(-1).squeeze(-1)
 
-        assert old_val.shape == td_target.shape
-        loss = self.loss_fn(old_val, td_target)
+
+        #     # Upate formula reward + (1-termination) * discount_factor * )
+
+        #     # Calcualtes the Q-Values for the new_state after every optimal (greedy) aciton
+        #     # The greedy actions is chosen by the policy network in simulation
+        #     target_max = (
+        #         policy_net(new_states).squeeze(-1).squeeze(-1)
+        #     )
+
+        #     # 1-Termination sets the update to onlt the final reward
+        #     td_target = rewards.unsqueeze(1) + self.discount_factor * target_max * (
+        #         1 - terminations.unsqueeze(1)
+        #     ) 
+            # Get current Q-values
+        current_q = policy_net(states).squeeze(-1).squeeze(-1)
+        current_q_actions = current_q.gather(1, actions)
+
+
+        assert current_q_actions.shape == td_target.shape
+        loss = self.loss_fn(current_q_actions, td_target)
 
 
         # with torch.no_grad():  # No need to track gradients for prediction

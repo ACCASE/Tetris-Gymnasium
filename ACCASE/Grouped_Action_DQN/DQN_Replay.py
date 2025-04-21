@@ -136,16 +136,20 @@ class Agent:
 
 
         with torch.no_grad():
-            target_max = (
-                policy_net(new_states).squeeze(-1).squeeze(-1)
-            )
-            td_target = rewards.unsqueeze(1) + self.discount_factor * target_max * (
+            q_values_target = target_net(new_states).squeeze(-1).squeeze(-1)
+            q_values_target[~action_masks.bool()] = float('-inf')
+            target_max = q_values_target.max(dim=1)[0]
+            # target_max = (
+            #     target_net(new_states).squeeze(-1).squeeze(-1)
+            # )
+            td_target = rewards.unsqueeze(1) + self.discount_factor * target_max.unsqueeze(1) * (
                 1 - terminations.unsqueeze(1)
             )
-        old_val = policy_net(states).squeeze(-1).squeeze(-1)
+        q_val = policy_net(states).squeeze(-1).squeeze(-1)
+        action_q_val = q_val.gather(1, actions)
 
-        assert old_val.shape == td_target.shape
-        loss = self.loss_fn(old_val, td_target)
+        assert action_q_val.shape == td_target.shape
+        loss = self.loss_fn(action_q_val, td_target)
 
         # Optimize
         self.optimizer.zero_grad() # Reset gradients

@@ -155,23 +155,8 @@ class Agent:
                 1 - terminations.unsqueeze(1)
             )
 
-
-        #     # Upate formula reward + (1-termination) * discount_factor * )
-
-        #     # Calcualtes the Q-Values for the new_state after every optimal (greedy) aciton
-        #     # The greedy actions is chosen by the policy network in simulation
-        #     target_max = (
-        #         policy_net(new_states).squeeze(-1).squeeze(-1)
-        #     )
-
-        #     # 1-Termination sets the update to onlt the final reward
-        #     td_target = rewards.unsqueeze(1) + self.discount_factor * target_max * (
-        #         1 - terminations.unsqueeze(1)
-        #     ) 
-            # Get current Q-values
         current_q = policy_net(states).squeeze(-1).squeeze(-1)
         current_q_actions = current_q.gather(1, actions)
-
 
         assert current_q_actions.shape == td_target.shape
         loss = self.loss_fn(current_q_actions, td_target)

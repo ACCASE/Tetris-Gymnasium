@@ -147,20 +147,6 @@ class Agent:
         assert old_val.shape == td_target.shape
         loss = self.loss_fn(old_val, td_target)
 
-
-        # with torch.no_grad():  # No need to track gradients for prediction
-        #     # action_masks = torch.tensor(infos['action_mask'], dtype=torch.bool, device=device) # Limit to valid actions
-        #     # new_state_q = target_net(new_state) # Get Q-values for all possible actions
-        #     # new_state_q[~action_mask] = float('-inf') # Mask invalid actions with large negative value
-        #     target_q = rewards + (1-terminations) * self.discount_factor * (target_net(new_states).squeeze(2)*action_masks).max(1)[0] # Bellman equation
-
-        # # Get the expected reward for the current state and action
-        # current_q = policy_net(states).squeeze(2).gather(dim=1, index=actions.unsqueeze(1)).squeeze() # Get Q-values for all possible actions
-        # # current_q = policy_net(state)[action]
-
-        # # Compute loss
-        # loss = self.loss_fn(current_q, target_q)
-
         # Optimize
         self.optimizer.zero_grad() # Reset gradients
         loss.backward() # Backpropagation
@@ -273,7 +259,7 @@ class Agent:
         for episode in itertools.count():
             state, info = env.reset()
             state = torch.tensor(state, dtype=torch.float, device=device)
-            state = self.normalize_state(state, num_rows, num_cols) # Normalize state
+            # state = self.normalize_state(state, num_rows, num_cols) # Normalize state
             env.render()
             total_reward = 0
             terminated = False
@@ -333,7 +319,7 @@ class Agent:
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
-                new_state = self.normalize_state(new_state, num_rows, num_cols) # Normalize state
+                # new_state = self.normalize_state(new_state, num_rows, num_cols) # Normalize state
                 reward = torch.tensor(reward, dtype=torch.float, device=device)
                 
 

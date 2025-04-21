@@ -1,6 +1,6 @@
 TetrisManualCost:
     env_id: tetris_gymnasium/Tetris
-    column0_height: 1
+    column0_height: 0.01
     column1_height: 1
     column2_height: 1
     column3_height: 1
@@ -9,7 +9,7 @@ TetrisManualCost:
     column6_height: 1
     column7_height: 1
     column8_height: 1
-    column9_height: 1
-    max_height: 10
+    column9_height: 0.01
+    max_height: 200
     holes: 6
     bumpiness: 3

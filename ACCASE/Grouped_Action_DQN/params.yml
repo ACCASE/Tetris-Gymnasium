@@ -9,7 +9,7 @@ Tetris1:
     discount_factor: 0.85
 TetrisReplay:
     env_id: tetris_gymnasium/Tetris
-    hidden_layer_dim: 256
+    hidden_layer_dim: 64
     num_episodes: 2500
     epsilon_start: 1
     epsilon_end: 0.001

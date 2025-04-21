@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import os
 import itertools
 import datetime
+import argparse
 
 from tetris_gymnasium.envs.tetris import Tetris
 from tetris_gymnasium.wrappers.grouped import GroupedActionsObservations
@@ -219,7 +220,7 @@ class Agent:
         for episode in itertools.count():
             state, info = env.reset()
             state = torch.tensor(state, dtype=torch.float, device=device)
-            state = self.normalize_state(state, num_rows, num_cols) # Normalize state
+            # state = self.normalize_state(state, num_rows, num_cols) # Normalize state
             env.render()
             terminated = False
             truncated = False
@@ -268,10 +269,11 @@ class Agent:
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
-                new_state = self.normalize_state(new_state, num_rows, num_cols) # Normalize state
+                # new_state = self.normalize_state(new_state, num_rows, num_cols) # Normalize state
                 reward = torch.tensor(reward, dtype=torch.float, device=device)
 
-                self.optimize(reward, action, state, new_state, terminated, policy_net)
+                if training:
+                    self.optimize(reward, action, state, new_state, terminated, policy_net)
 
                 # Next state
                 state = new_state
@@ -302,9 +304,10 @@ class Agent:
                 if current_time-last_graph_update_time > datetime.timedelta(seconds=10):
                     self.save_graph(rewards_list, epsilon_history)
                     last_graph_update_time = current_time
-
-            # Modify epsilon
-            epsilon = max(self.epsilon_end, epsilon * self.epsilon_decay)
+                    
+            if training:
+                # Modify epsilon
+                epsilon = max(self.epsilon_end, epsilon * self.epsilon_decay)
 
             # print(f"Episode {episode + 1}: Total Reward: {total_reward}")
         
@@ -312,8 +315,23 @@ class Agent:
         return rewards_list
 
 if __name__ == "__main__":
-    paul = Agent('Tetris1')
-    rewards = paul.run(True, False)
+
+        # Add option for command line arguments
+    parser = argparse.ArgumentParser(description='Training or Testing DQN Agent')
+    parser.add_argument('params', type=str, help='Parameters set to use for training/testing')
+    parser.add_argument('--train', action='store_true', help='Training flag')
+    args = parser.parse_args()
+
+    terryTetris = Agent(params_set=args.params)
+
+    if args.train:
+        # Training Mode
+        terryTetris.run(training=True, render=False)
+    else:
+        # Testing Mode
+        terryTetris.run(training=False, render=True)
+    # paul = Agent('Tetris1')
+    # rewards = paul.run(True, False)
 
     # Plotting
 

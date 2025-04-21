@@ -141,6 +141,24 @@ class Agent:
         weighted_state = state * self.weights.unsqueeze(0)
         costs = torch.sum(weighted_state, dim=1)  # Sum across the features
         return costs
+    
+    def normalize_state(self, state, num_rows, num_cols):
+        """
+        Normalize the state to be between 0 and 1
+        """
+        # Normalize the state by dividing by the maximum value in the state
+        # Build Vector to normalize state by
+        # Column Height and Max Height
+        normalization_vector = torch.ones(1,num_cols+1, device=device) * num_rows
+        # Holes
+        max_holes = num_cols*num_rows
+        normalization_vector = torch.cat((normalization_vector, torch.ones(1,1, device=device) * max_holes), dim=1)
+        # Bumpiness
+        max_bumpiness = num_rows
+        normalization_vector = torch.cat((normalization_vector, torch.ones(1,1, device=device) * max_bumpiness), dim=1)
+        # Normalize the state
+        normalized_state = state / normalization_vector
+        return normalized_state
 
 
     def run(self, training=True, render=False):
@@ -159,6 +177,8 @@ class Agent:
         num_states = env.observation_space.shape[1]
         num_actions = 1 #env.action_space.n Becuase of grouped actions
             # Will evaluate the value of each action and choose the greatest
+        num_rows = env.unwrapped.height
+        num_cols = env.unwrapped.width
 
         # Track Steps. Every so often update the target network with policy
         step_count = 0
@@ -168,6 +188,7 @@ class Agent:
         for episode in itertools.count():
             state, info = env.reset()
             state = torch.tensor(state, dtype=torch.float, device=device)
+            state = self.normalize_state(state, num_rows, num_cols) # Normalize state
             env.render()
             total_reward = 0
             terminated = False
@@ -212,6 +233,7 @@ class Agent:
 
                 # Convert new state and reward to tensors
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
+                new_state = self.normalize_state(new_state, num_rows, num_cols) # Normalize state
                 reward = torch.tensor(reward, dtype=torch.float, device=device)
                 
 

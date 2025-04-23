@@ -47,6 +47,60 @@ May require Microsoft C++ build tools: https://visualstudio.microsoft.com/downlo
 
 Additionally, CUDA could be installed if compatible with your system.
 
+# To run
+
+All versions can be launched from the debug section of VSCode or alternatively via the command line. If running from 
+the command line add the --train flag to initiate training mode otherwise, the previously trained policy in the 
+corresponding runs folder will used for simulation.
+
+Via command line:
+-----------------------------------------
+Random Agent
+Simulation
+```bash
+python .\ACCASE\Grouped_Action_DQN\Fully_Random.py TetrisRandom
+```
+Training
+```bash
+python .\ACCASE\Grouped_Action_DQN\Fully_Random.py TetrisRandom --train
+```
+-----------------------------------------
+Manually Weighted Feature Vector
+Simulation
+```bash
+python .\ACCASE\Grouped_Action_Hand_Crafted\Manual_Cost_Function.py TetrisManualCost
+```
+-----------------------------------------
+DQN with Replay Buffer
+Simulation
+```bash
+python .\ACCASE\Grouped_Action_DQN\DQN_Replay.py TetrisReplay
+```
+Training
+```bash
+python .\ACCASE\Grouped_Action_DQN\DQN_Replay.py TetrisReplay --train
+```
+-----------------------------------------
+Double DQN
+Simulation
+```bash
+python .\ACCASE\Grouped_Action_DQN\Double_DQN_Replay.py TetrisDoubleDQN
+```
+Training
+```bash
+python .\ACCASE\Grouped_Action_DQN\Double_DQN_Replay.py TetrisDoubleDQN --train
+```
+-----------------------------------------
+DQN without Replay Buffer
+Simulation
+```bash
+python .\ACCASE\Grouped_Action_DQN\DQN_Basic.py Tetris1
+```
+Training
+```bash
+python .\ACCASE\Grouped_Action_DQN\DQN_Basic.py Tetris1 --train
+```
+
 #
 ![logo](https://raw.githubusercontent.com/Max-We/Tetris-Gymnasium/main/docs/_static/logo.png "Tetris Gymnasium")
 

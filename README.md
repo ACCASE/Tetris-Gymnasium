@@ -51,10 +51,10 @@ Additionally, CUDA could be installed if compatible with your system.
 
 All versions can be launched from the debug section of VSCode or alternatively via the command line. 
 
-In VSCode all configurations will be avalable from a grop down and executable with the play button
+In VSCode, all configurations will be available from a drop down and executable with the play button
 
-If running from the command line add the --train flag to initiate training mode otherwise, the previously trained
-policy in the corresponding runs folder will used for simulation.
+If running from the command line, add the --train flag to initiate training mode otherwise, the previously trained
+policy in the corresponding runs folder will be used for simulation.
 
 Via command line:
 -----------------------------------------

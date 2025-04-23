@@ -7,8 +7,47 @@
 
 My Additions are contained within the folder ACCASE
 
-# 
+# Required Packages
 
+Pytorch: https://pytorch.org/get-started/locally/
+
+```bash
+pip install tetris-gymnasium
+```
+
+```bash
+pip install "gymnasium[other]"
+```
+
+```bash
+pip install PyYAML
+```
+
+```bash
+pip install opencv-python
+```
+
+```bash
+pip install tyro 
+```
+
+```bash
+pip install stable-baselines3
+```
+
+```bash
+pip install tensorboard
+```
+
+```bash
+pip install wandb
+```
+
+May require Microsoft C++ build tools: https://visualstudio.microsoft.com/downloads/?q=build+tools
+
+Additionally, CUDA could be installed if compatible with your system.
+
+#
 ![logo](https://raw.githubusercontent.com/Max-We/Tetris-Gymnasium/main/docs/_static/logo.png "Tetris Gymnasium")
 
 Tetris Gymnasium is a state-of-the-art, modular Reinforcement Learning (RL) environment for Tetris, tightly integrated

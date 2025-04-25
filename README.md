@@ -13,7 +13,6 @@ python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
 ```
-Pytorch: https://pytorch.org/get-started/locally/
 
 May require Microsoft C++ build tools: https://visualstudio.microsoft.com/downloads/?q=build+tools
 

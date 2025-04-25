@@ -16,6 +16,10 @@ pip install tetris-gymnasium
 ```
 
 ```bash
+pip install gymnasium
+```
+
+```bash
 pip install "gymnasium[other]"
 ```
 

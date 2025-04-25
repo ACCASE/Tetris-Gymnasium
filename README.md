@@ -5,7 +5,7 @@
 
 # A Fork of Tetris Gymnasium
 
-My Additions are contained within the folder ACCASE
+My additions are contained within the folder ACCASE
 
 # Required Packages
 

@@ -8,44 +8,12 @@
 My additions are contained within the folder ACCASE
 
 # Required Packages
-
+```bash
+python3 -m venv env
+source env/bin/activate
+pip install -r requirements.txt
+```
 Pytorch: https://pytorch.org/get-started/locally/
-
-```bash
-pip install tetris-gymnasium
-```
-
-```bash
-pip install gymnasium
-```
-
-```bash
-pip install "gymnasium[other]"
-```
-
-```bash
-pip install PyYAML
-```
-
-```bash
-pip install opencv-python
-```
-
-```bash
-pip install tyro 
-```
-
-```bash
-pip install stable-baselines3
-```
-
-```bash
-pip install tensorboard
-```
-
-```bash
-pip install wandb
-```
 
 May require Microsoft C++ build tools: https://visualstudio.microsoft.com/downloads/?q=build+tools
 
